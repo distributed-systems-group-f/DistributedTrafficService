@@ -1,0 +1,37 @@
+version: "3.9"
+
+# Production-like multi-region simulation
+# Extends docker-compose.yml with additional replica services
+
+services:
+  postgres_ireland:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: traffic_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: traffic_ireland
+    volumes:
+      - postgres_ireland_data:/var/lib/postgresql/data
+
+  postgres_uk:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: traffic_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: traffic_uk
+    volumes:
+      - postgres_uk_data:/var/lib/postgresql/data
+
+  postgres_france:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: traffic_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: traffic_france
+    volumes:
+      - postgres_france_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_ireland_data:
+  postgres_uk_data:
+  postgres_france_data:
