@@ -1,0 +1,81 @@
+.dashboard {
+  padding: 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.dashboard h2 {
+  font-size: 1.3rem;
+  color: #1e3a8a;
+  margin-bottom: 24px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  margin-bottom: 16px;
+}
+
+.section h3 {
+  font-size: 1rem;
+  color: #334155;
+  margin-bottom: 16px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  padding: 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.data-table td {
+  padding: 8px;
+  border-bottom: 1px solid #f8fafc;
+  font-size: 0.9rem;
+}
+
+.last-updated {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-align: right;
+}
+
+.empty { color: #94a3b8; font-size: 0.9rem; }
+.page-center { text-align: center; padding: 48px; color: #64748b; }

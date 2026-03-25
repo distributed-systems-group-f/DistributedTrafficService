@@ -142,5 +142,12 @@ services:
     depends_on:
       <<: *service-depends
 
+  frontend:
+    build: ./services/frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api_gateway
+
 volumes:
   postgres_data:

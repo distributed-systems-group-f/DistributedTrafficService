@@ -1,0 +1,55 @@
+.bookings-page {
+  padding: 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.bookings-page h2 {
+  font-size: 1.3rem;
+  color: #1e3a8a;
+  margin-bottom: 20px;
+}
+
+.bookings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.bookings-table th {
+  background: #f8fafc;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.8rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bookings-table td {
+  padding: 12px 16px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.mono { font-family: monospace; }
+
+.status-badge { font-weight: 600; font-size: 0.85rem; }
+
+.btn-cancel {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  color: #dc2626;
+}
+
+.btn-cancel:hover { background: #fecaca; }
+
+.empty { color: #94a3b8; font-size: 0.95rem; }
+
+.page-center { text-align: center; padding: 48px; color: #64748b; }
