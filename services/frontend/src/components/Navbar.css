@@ -1,47 +1,81 @@
 .navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #1e40af;
-  color: white;
-  padding: 0 24px;
-  height: 56px;
+  padding: 0 32px;
+  height: 60px;
+  background: var(--ink);
+  box-shadow: 0 1px 0 rgba(255,255,255,.06);
 }
 
 .navbar-brand {
-  font-weight: 700;
-  font-size: 1.1rem;
-  letter-spacing: 0.5px;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.navbar-brand::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-2);
 }
 
 .navbar-links {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
 }
 
 .navbar-links a {
-  color: #bfdbfe;
-  font-size: 0.9rem;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.55);
+  transition: color .15s;
+  text-decoration: none;
 }
+.navbar-links a:hover { color: var(--white); text-decoration: none; }
+.navbar-links a.active { color: var(--white); }
 
-.navbar-links a:hover {
-  color: white;
+.navbar-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255,255,255,.12);
 }
 
 .navbar-user {
-  font-size: 0.85rem;
-  color: #93c5fd;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,.38);
+  font-family: var(--font-mono);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-link {
   background: none;
-  border: none;
-  color: #fca5a5;
-  font-size: 0.9rem;
-  padding: 0;
+  border: 1.5px solid rgba(255,255,255,.2);
+  color: rgba(255,255,255,.7);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: all .15s;
 }
-
-.btn-link:hover {
-  color: #fecaca;
-}
+.btn-link:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.4); color: var(--white); }
