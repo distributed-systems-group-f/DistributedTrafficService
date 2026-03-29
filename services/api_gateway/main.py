@@ -12,7 +12,7 @@ from middleware import setup_middleware
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Traffic Service API Gateway", version="1.0.0")
+app = FastAPI(title="Traffic Service API Gateway", redirect_slashes=False, version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

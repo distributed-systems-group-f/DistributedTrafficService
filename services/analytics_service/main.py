@@ -9,7 +9,7 @@ from routes import router
 from consumer import start_consumer
 import models  # noqa: F401
 
-app = FastAPI(title="Analytics Service", version="1.0.0")
+app = FastAPI(redirect_slashes=False, title="Analytics Service", version="1.0.0")
 
 app.include_router(create_health_router("analytics_service"))
 app.include_router(router, prefix="/analytics")

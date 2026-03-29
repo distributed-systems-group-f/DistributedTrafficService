@@ -18,6 +18,7 @@ async def create_booking(
     plate_number: str | None = None,
 ) -> Booking:
     booking_id = str(uuid.uuid4())
+    departure_time = departure_time.replace(tzinfo=None) if departure_time.tzinfo else departure_time
     booking = Booking(
         id=booking_id,
         driver_id=driver_id,
@@ -45,11 +46,16 @@ async def create_booking(
             plate_number=plate_number,
         )
         booking.status = "CONFIRMED"
+        await db.commit()
+        await db.refresh(booking)
     except Exception:
+        # Saga already rolled back — the booking object is detached.
+        # Re-add it so we can persist the REJECTED status.
         booking.status = "REJECTED"
+        db.add(booking)
+        await db.commit()
+        await db.refresh(booking)
 
-    await db.commit()
-    await db.refresh(booking)
     return booking
 
 

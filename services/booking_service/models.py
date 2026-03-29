@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import String, DateTime, Integer, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from shared.database import Base
 
@@ -8,8 +9,8 @@ from shared.database import Base
 class Booking(Base):
     __tablename__ = "bookings"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    driver_id: Mapped[str] = mapped_column(String, nullable=False)
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    driver_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     origin_lat: Mapped[float]
     origin_lng: Mapped[float]
     destination_lat: Mapped[float]
@@ -24,8 +25,8 @@ class Booking(Base):
 class SegmentReservation(Base):
     __tablename__ = "segment_reservations"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    booking_id: Mapped[str] = mapped_column(String, ForeignKey("bookings.id"), nullable=False)
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    booking_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("bookings.id"), nullable=False)
     segment_id: Mapped[str] = mapped_column(String, nullable=False)
     region: Mapped[str] = mapped_column(String(50), nullable=False)
     time_slot_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)

@@ -5,17 +5,9 @@ from shared.config import get_settings
 router = APIRouter()
 settings = get_settings()
 
-SERVICE_MAP = {
-    "/auth": settings.auth_service_url,
-    "/bookings": settings.booking_service_url,
-    "/verify": settings.verification_service_url,
-    "/notifications": settings.notification_service_url,
-    "/analytics": settings.analytics_service_url,
-}
-
 
 async def proxy(request: Request, target_url: str) -> Response:
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         url = target_url + request.url.path + (
             f"?{request.url.query}" if request.url.query else ""
         )
@@ -44,6 +36,11 @@ async def proxy_auth(request: Request, path: str):
 
 @router.api_route("/bookings/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy_bookings(request: Request, path: str):
+    return await proxy(request, settings.booking_service_url)
+
+
+@router.api_route("/bookings", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def proxy_bookings_root(request: Request):
     return await proxy(request, settings.booking_service_url)
 
 

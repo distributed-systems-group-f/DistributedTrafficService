@@ -2,9 +2,9 @@
 
 :root {
   --font-size: 16px;
-  --font-display: 'Syne', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
-  --font-mono: 'DM Mono', monospace;
+  --font-display: 'Syne', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-body:    'DM Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono:    'DM Mono', 'Cascadia Code', 'Fira Mono', ui-monospace, monospace;
   
   /* RoutePass Colors */
   --ink: #0d0d12;
