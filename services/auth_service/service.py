@@ -10,7 +10,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 async def register_user(db: AsyncSession, email: str, password: str, role: str, **kwargs) -> User:
-    hashed = pwd_context.hash(password)
+    hashed = pwd_context.hash(password.encode("utf-8")[:72].decode("utf-8", errors="ignore"))
     user = User(
         id=str(uuid.uuid4()),
         email=email,
@@ -27,6 +27,7 @@ async def register_user(db: AsyncSession, email: str, password: str, role: str, 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> tuple[User, str]:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
+    password = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
     if not user or not pwd_context.verify(password, user.password_hash):
         raise AuthenticationError("Invalid email or password")
     token = create_access_token(subject=user.id, role=user.role, extra={"email": user.email})

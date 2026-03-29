@@ -10,6 +10,23 @@ import service
 router = APIRouter()
 
 
+@router.get("/my/journeys", response_model=list[BookingOut])
+async def my_journeys(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    bookings = await service.get_driver_bookings(db, current_user["sub"])
+    return [
+        BookingOut(
+            booking_id=b.id,
+            status=b.status,
+            estimated_duration_minutes=b.estimated_duration_minutes,
+            created_at=b.created_at,
+        )
+        for b in bookings
+    ]
+
+
 @router.post("", response_model=BookingOut, status_code=status.HTTP_201_CREATED)
 async def create_booking(
     req: BookingCreateRequest,
@@ -73,20 +90,3 @@ async def cancel_booking(
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
-
-
-@router.get("/my/journeys", response_model=list[BookingOut])
-async def my_journeys(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    bookings = await service.get_driver_bookings(db, current_user["sub"])
-    return [
-        BookingOut(
-            booking_id=b.id,
-            status=b.status,
-            estimated_duration_minutes=b.estimated_duration_minutes,
-            created_at=b.created_at,
-        )
-        for b in bookings
-    ]

@@ -27,30 +27,33 @@ export default function LoginPage() {
       else if (res.data.role === 'enforcement_agent') navigate('/verify')
       else navigate('/bookings/new')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      setError(err.response?.data?.detail || 'Login failed. Check your credentials.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <FormCard title="Sign In">
+    <FormCard eyebrow="CS7NS6 Distributed Systems" title="Sign in" subtitle="Access the traffic booking system">
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+          <label>Email address</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="you@example.com" autoFocus required />
         </div>
         <div className="form-group">
           <label>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+            placeholder="••••••••" required />
         </div>
-        <button className="btn-primary" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign In'}
+        <button className="btn-primary" type="submit" disabled={loading}>
+          {loading ? 'Signing in…' : 'Sign in →'}
         </button>
         {error && <p className="error-msg">{error}</p>}
       </form>
-      <p style={{ marginTop: 16, fontSize: '0.9rem', textAlign: 'center' }}>
-        No account? <Link to="/register">Register</Link>
+      <p style={{ textAlign: 'center', fontSize: '0.88rem', color: 'var(--ink-muted)', marginTop: 8 }}>
+        No account?{' '}
+        <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 600 }}>Create one</Link>
       </p>
     </FormCard>
   )

@@ -7,7 +7,7 @@ from shared.database import init_db, Base, get_engine
 from routes import router
 import models  # noqa: F401
 
-app = FastAPI(title="Booking Service", version="1.0.0")
+app = FastAPI(title="Booking Service", version="1.0.0", redirect_slashes=False)
 
 app.include_router(create_health_router("booking_service"))
 app.include_router(router, prefix="/bookings")

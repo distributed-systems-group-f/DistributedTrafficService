@@ -6,3 +6,4 @@ redis[asyncio]==5.0.4
 pydantic-settings==2.2.1
 pyjwt==2.8.0
 python-json-logger==2.0.7
+aio-pika==9.4.1

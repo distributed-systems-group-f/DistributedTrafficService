@@ -84,6 +84,23 @@ CREATE TABLE IF NOT EXISTS region_france.reservations (
 );
 
 -- ============================================================
+-- SEED: default road segments used by the saga route resolver
+-- These IDs are deterministic (uuid5 of the region name) so the
+-- booking saga can reference them via foreign key.
+-- ============================================================
+INSERT INTO region_ireland.road_segments (id, name, start_point_lat, start_point_lng, end_point_lat, end_point_lng, max_capacity_per_slot)
+VALUES ('c8476fce-4136-5a82-a985-be50e80de41d', 'Ireland-Default', 53.3498, -6.2603, 51.8985, -8.4756, 150)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO region_uk.road_segments (id, name, start_point_lat, start_point_lng, end_point_lat, end_point_lng, max_capacity_per_slot)
+VALUES ('5ab73b95-6aa1-56a2-bede-05c0ecf43a7a', 'UK-Default', 51.5074, -0.1278, 53.4808, -2.2426, 200)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO region_france.road_segments (id, name, start_point_lat, start_point_lng, end_point_lat, end_point_lng, max_capacity_per_slot)
+VALUES ('0dfcd849-f0b8-5213-b721-44b067f63dd3', 'France-Default', 48.8566, 2.3522, 45.7640, 4.8357, 200)
+ON CONFLICT DO NOTHING;
+
+-- ============================================================
 -- AUTH
 -- ============================================================
 CREATE TABLE IF NOT EXISTS auth.users (

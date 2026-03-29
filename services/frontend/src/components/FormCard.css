@@ -2,84 +2,57 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 48px 16px;
+  padding: 60px 24px 40px;
+  min-height: calc(100vh - 60px);
 }
 
 .form-card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-  padding: 32px;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  padding: 40px 40px 36px;
   width: 100%;
-  max-width: 480px;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-card-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: -10px;
 }
 
 .form-card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 24px;
-  color: #1e3a8a;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: var(--ink);
+  line-height: 1.1;
 }
 
-.form-group {
+.form-card-subtitle {
+  font-size: 0.88rem;
+  color: var(--ink-muted);
+  margin-top: -12px;
+  line-height: 1.5;
+}
+
+.form-card form {
   display: flex;
   flex-direction: column;
-  margin-bottom: 16px;
+  gap: 14px;
 }
 
-.form-group label {
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-bottom: 6px;
-  color: #555;
-}
-
-.form-group input,
-.form-group select {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  outline: none;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
-}
-
-.btn-primary {
-  width: 100%;
-  padding: 10px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
-  margin-top: 8px;
-}
-
-.btn-primary:hover {
-  background: #1d4ed8;
-}
-
-.btn-primary:disabled {
-  background: #93c5fd;
-  cursor: not-allowed;
-}
-
-.error-msg {
-  color: #dc2626;
-  font-size: 0.85rem;
-  margin-top: 12px;
-  text-align: center;
-}
-
-.success-msg {
-  color: #16a34a;
-  font-size: 0.85rem;
-  margin-top: 12px;
-  text-align: center;
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }

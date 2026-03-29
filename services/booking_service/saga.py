@@ -40,7 +40,7 @@ def resolve_route(origin_lat, origin_lng, dest_lat, dest_lng, departure_time):
         if region not in seen_regions:
             seen_regions.add(region)
             segments.append({
-                "segment_id": f"placeholder-{region.lower()}",
+                "segment_id": str(uuid.uuid5(uuid.NAMESPACE_DNS, region)),
                 "region": region,
                 "slot_start": departure_time.replace(minute=0, second=0, microsecond=0),
                 "slot_end": departure_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1),
