@@ -136,12 +136,16 @@ CREATE TABLE IF NOT EXISTS public.bookings (
     origin_lng DOUBLE PRECISION,
     destination_lat DOUBLE PRECISION,
     destination_lng DOUBLE PRECISION,
+    plate_number VARCHAR(20),
     departure_time TIMESTAMP NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     estimated_duration_minutes INTEGER,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE public.bookings
+    ADD COLUMN IF NOT EXISTS plate_number VARCHAR(20);
 
 CREATE TABLE IF NOT EXISTS public.segment_reservations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -153,3 +157,37 @@ CREATE TABLE IF NOT EXISTS public.segment_reservations (
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- ============================================================
+-- NOTIFICATIONS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    booking_id UUID,
+    event_type VARCHAR(50) NOT NULL,
+    channel VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    sent_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- INDEXES
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_auth_users_plate_number
+    ON auth.users (plate_number);
+
+CREATE INDEX IF NOT EXISTS idx_bookings_plate_status_departure
+    ON public.bookings (plate_number, status, departure_time DESC);
+
+CREATE INDEX IF NOT EXISTS idx_bookings_driver_created
+    ON public.bookings (driver_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_segment_reservations_booking_status
+    ON public.segment_reservations (booking_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type_created
+    ON analytics.booking_events (event_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_sent_at
+    ON public.notifications (user_id, sent_at DESC);

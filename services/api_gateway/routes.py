@@ -13,16 +13,26 @@ async def proxy(request: Request, target_url: str) -> Response:
         )
         body = await request.body()
         try:
+            request_headers = {
+                k: v
+                for k, v in request.headers.items()
+                if k.lower() not in {"host", "connection", "content-length"}
+            }
             resp = await client.request(
                 method=request.method,
                 url=url,
-                headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
+                headers=request_headers,
                 content=body,
             )
+            response_headers = {
+                k: v
+                for k, v in resp.headers.items()
+                if k.lower() not in {"connection", "transfer-encoding"}
+            }
             return Response(
                 content=resp.content,
                 status_code=resp.status_code,
-                headers=dict(resp.headers),
+                headers=response_headers,
                 media_type=resp.headers.get("content-type"),
             )
         except httpx.ConnectError:

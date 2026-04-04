@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import Callable, Awaitable
@@ -7,6 +8,7 @@ from .config import get_settings
 logger = logging.getLogger(__name__)
 
 EXCHANGE_NAME = "traffic_events"
+RECONNECT_DELAY_SECONDS = 5
 
 
 async def get_connection() -> aio_pika.RobustConnection:
@@ -36,25 +38,55 @@ async def consume_events(
     handler: Callable[[dict], Awaitable[None]],
 ) -> None:
     settings = get_settings()
-    connection = await aio_pika.connect_robust(settings.rabbitmq_url)
-    channel = await connection.channel()
-    await channel.set_qos(prefetch_count=10)
 
-    exchange = await channel.declare_exchange(
-        EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC, durable=True
-    )
-    queue = await channel.declare_queue(queue_name, durable=True)
+    while True:
+        connection = None
+        try:
+            connection = await aio_pika.connect_robust(
+                settings.rabbitmq_url,
+                reconnect_interval=RECONNECT_DELAY_SECONDS,
+            )
+            channel = await connection.channel()
+            await channel.set_qos(prefetch_count=10)
 
-    for key in routing_keys:
-        await queue.bind(exchange, routing_key=key)
+            exchange = await channel.declare_exchange(
+                EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC, durable=True
+            )
+            queue = await channel.declare_queue(queue_name, durable=True)
 
-    async def on_message(message: aio_pika.IncomingMessage):
-        async with message.process():
-            try:
-                payload = json.loads(message.body.decode())
-                await handler(payload)
-            except Exception as e:
-                logger.error(f"Error processing message: {e}")
+            for key in routing_keys:
+                await queue.bind(exchange, routing_key=key)
 
-    await queue.consume(on_message)
-    logger.info(f"Consuming from {queue_name} with keys {routing_keys}")
+            async def on_message(message: aio_pika.IncomingMessage):
+                async with message.process(requeue=True):
+                    try:
+                        routing_key = message.routing_key
+                        payload = json.loads(message.body.decode())
+                        if isinstance(payload, dict):
+                            payload.setdefault("event_type", routing_key)
+                            payload.setdefault("routing_key", routing_key)
+                        else:
+                            payload = {
+                                "data": payload,
+                                "event_type": routing_key,
+                                "routing_key": routing_key,
+                            }
+                        await handler(payload)
+                    except Exception as e:
+                        logger.error(f"Error processing message: {e}")
+                        raise
+
+            await queue.consume(on_message)
+            logger.info(f"Consuming from {queue_name} with keys {routing_keys}")
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            if connection is not None and not connection.is_closed:
+                await connection.close()
+            logger.info(f"Consumer cancelled for queue {queue_name}")
+            raise
+        except Exception as e:
+            logger.error(
+                f"Consumer connection failed for {queue_name}: {e}. "
+                f"Retrying in {RECONNECT_DELAY_SECONDS}s"
+            )
+            await asyncio.sleep(RECONNECT_DELAY_SECONDS)

@@ -2,6 +2,7 @@ import sys
 sys.path.insert(0, "/app")
 
 from fastapi import FastAPI
+from sqlalchemy import text
 from shared.health import create_health_router
 from shared.database import init_db, Base, get_engine
 from routes import router
@@ -18,4 +19,5 @@ async def startup():
     init_db()
     engine = get_engine()
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
         await conn.run_sync(Base.metadata.create_all)

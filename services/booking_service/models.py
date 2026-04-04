@@ -15,6 +15,7 @@ class Booking(Base):
     origin_lng: Mapped[float]
     destination_lat: Mapped[float]
     destination_lng: Mapped[float]
+    plate_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     departure_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="PENDING")
     estimated_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -27,7 +28,7 @@ class SegmentReservation(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     booking_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("bookings.id"), nullable=False)
-    segment_id: Mapped[str] = mapped_column(String, nullable=False)
+    segment_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     region: Mapped[str] = mapped_column(String(50), nullable=False)
     time_slot_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     time_slot_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)

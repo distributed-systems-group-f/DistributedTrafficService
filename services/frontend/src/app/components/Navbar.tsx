@@ -8,9 +8,11 @@ export function Navbar() {
   if (!user) return null;
 
   const navLinks = [
+    { path: '/dashboard', label: 'DASHBOARD', roles: ['admin'] },
     { path: '/book',     label: 'BOOK',     roles: ['driver', 'admin'] },
     { path: '/journeys', label: 'JOURNEYS', roles: ['driver', 'admin'] },
     { path: '/verify',   label: 'VERIFY',   roles: ['enforcement', 'admin'] },
+    { path: '/notifications', label: 'NOTIFICATIONS', roles: ['driver', 'enforcement', 'admin'] },
   ];
 
   const visibleLinks = navLinks.filter(link => link.roles.includes(user.role));
@@ -20,7 +22,13 @@ export function Navbar() {
       <div className="flex items-center gap-2">
         <span className="text-[#ff3b3b]">●</span>
         <Link
-          to={user.role === 'enforcement' ? '/verify' : '/journeys'}
+          to={
+            user.role === 'enforcement'
+              ? '/verify'
+              : user.role === 'admin'
+                ? '/dashboard'
+                : '/journeys'
+          }
           style={{ fontFamily: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.02em' }}
           className="text-white text-xl"
         >
@@ -35,7 +43,7 @@ export function Navbar() {
             to={link.path}
             style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}
             className={`text-xs uppercase tracking-wide transition-colors ${
-              location.pathname === link.path ? 'text-white' : 'text-white/60 hover:text-white'
+              location.pathname.startsWith(link.path) ? 'text-white' : 'text-white/60 hover:text-white'
             }`}
           >
             {link.label}

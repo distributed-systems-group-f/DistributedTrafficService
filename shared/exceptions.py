@@ -33,3 +33,7 @@ class AuthenticationError(TrafficServiceError):
 
 class RegionUnavailableError(TrafficServiceError):
     pass
+
+
+class RouteNotFoundError(TrafficServiceError):
+    pass

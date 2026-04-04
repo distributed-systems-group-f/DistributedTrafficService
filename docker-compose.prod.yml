@@ -8,28 +8,46 @@ services:
     image: postgres:15
     environment:
       POSTGRES_USER: traffic_admin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
       POSTGRES_DB: traffic_ireland
     volumes:
       - postgres_ireland_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traffic_admin -d traffic_ireland"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres_uk:
     image: postgres:15
     environment:
       POSTGRES_USER: traffic_admin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
       POSTGRES_DB: traffic_uk
     volumes:
       - postgres_uk_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traffic_admin -d traffic_uk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres_france:
     image: postgres:15
     environment:
       POSTGRES_USER: traffic_admin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
       POSTGRES_DB: traffic_france
     volumes:
       - postgres_france_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traffic_admin -d traffic_france"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   postgres_ireland_data:
