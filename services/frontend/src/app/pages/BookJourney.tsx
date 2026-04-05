@@ -1,21 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
 import { useAuth } from '../contexts/AuthContext';
-import { createBooking, BookingOut } from '../api/bookings';
+import {
+  createBooking,
+  previewRoute,
+  type BookingOut,
+  type RoutePreviewOut,
+} from '../api/bookings';
+
+import 'leaflet/dist/leaflet.css';
+
+type Waypoint = {
+  id: string;
+  label: string;
+  region: 'EU_WEST_IRELAND' | 'EU_WEST_UK' | 'EU_WEST_FRANCE';
+  lat: number;
+  lng: number;
+};
+
+const WAYPOINTS: Waypoint[] = [
+  { id: 'dublin', label: 'Dublin', region: 'EU_WEST_IRELAND', lat: 53.3498, lng: -6.2603 },
+  { id: 'cork', label: 'Cork', region: 'EU_WEST_IRELAND', lat: 51.8985, lng: -8.4756 },
+  { id: 'galway', label: 'Galway', region: 'EU_WEST_IRELAND', lat: 53.2707, lng: -9.0568 },
+  { id: 'limerick', label: 'Limerick', region: 'EU_WEST_IRELAND', lat: 52.6638, lng: -8.6267 },
+  { id: 'belfast', label: 'Belfast', region: 'EU_WEST_UK', lat: 54.5973, lng: -5.9301 },
+  { id: 'holyhead', label: 'Holyhead', region: 'EU_WEST_UK', lat: 53.3083, lng: -4.6325 },
+  { id: 'london', label: 'London', region: 'EU_WEST_UK', lat: 51.5074, lng: -0.1278 },
+  { id: 'birmingham', label: 'Birmingham', region: 'EU_WEST_UK', lat: 52.4862, lng: -1.8904 },
+  { id: 'manchester', label: 'Manchester', region: 'EU_WEST_UK', lat: 53.4808, lng: -2.2426 },
+  { id: 'paris', label: 'Paris', region: 'EU_WEST_FRANCE', lat: 48.8566, lng: 2.3522 },
+  { id: 'lyon', label: 'Lyon', region: 'EU_WEST_FRANCE', lat: 45.7640, lng: 4.8357 },
+  { id: 'marseille', label: 'Marseille', region: 'EU_WEST_FRANCE', lat: 43.2965, lng: 5.3698 },
+  { id: 'bordeaux', label: 'Bordeaux', region: 'EU_WEST_FRANCE', lat: 44.8378, lng: -0.5792 },
+  { id: 'calais', label: 'Calais', region: 'EU_WEST_FRANCE', lat: 50.9513, lng: 1.8587 },
+];
+
+const WAYPOINT_BY_ID = Object.fromEntries(WAYPOINTS.map((w) => [w.id, w])) as Record<string, Waypoint>;
 
 type RoutePreset = {
-  id: string; label: string; flag: string;
-  originRegion: string; destRegion: string; note: string; isCrossRegion: boolean;
-  olat: number; olng: number; dlat: number; dlng: number;
+  id: string;
+  label: string;
+  flag: string;
+  note: string;
+  originId: string;
+  destinationId: string;
 };
 
 const ROUTE_PRESETS: RoutePreset[] = [
-  { id: 'ie-dublin-cork',      label: 'Dublin → Cork',        flag: '🇮🇪',    originRegion: 'IE', destRegion: 'IE', note: 'Single region',      isCrossRegion: false, olat: 53.3498, olng: -6.2603, dlat: 51.8969, dlng: -8.4863 },
-  { id: 'ie-dublin-london',    label: 'Dublin → London',      flag: '🇮🇪🇬🇧', originRegion: 'IE', destRegion: 'GB', note: 'Cross-region: IE→GB', isCrossRegion: true,  olat: 53.3498, olng: -6.2603, dlat: 51.5074, dlng: -0.1278 },
-  { id: 'gb-london-manchester',label: 'London → Manchester',  flag: '🇬🇧',    originRegion: 'GB', destRegion: 'GB', note: 'Single region',      isCrossRegion: false, olat: 51.5074, olng: -0.1278, dlat: 53.4808, dlng: -2.2426 },
-  { id: 'gb-london-paris',     label: 'London → Paris',       flag: '🇬🇧🇫🇷', originRegion: 'GB', destRegion: 'FR', note: 'Cross-region: GB→FR', isCrossRegion: true,  olat: 51.5074, olng: -0.1278, dlat: 48.8566, dlng:  2.3522 },
-  { id: 'fr-paris-lyon',       label: 'Paris → Lyon',         flag: '🇫🇷',    originRegion: 'FR', destRegion: 'FR', note: 'Single region',      isCrossRegion: false, olat: 48.8566, olng:  2.3522, dlat: 45.7640, dlng:  4.8357 },
-  { id: 'fr-paris-dublin',     label: 'Paris → Dublin',       flag: '🇫🇷🇮🇪', originRegion: 'FR', destRegion: 'IE', note: 'Cross-region: FR→IE', isCrossRegion: true,  olat: 48.8566, olng:  2.3522, dlat: 53.3498, dlng: -6.2603 },
+  { id: 'ie-dublin-cork', label: 'Dublin → Cork', flag: '🇮🇪', note: 'Single region', originId: 'dublin', destinationId: 'cork' },
+  { id: 'ie-dublin-birmingham', label: 'Dublin → Birmingham', flag: '🇮🇪🇬🇧', note: 'Cross-region: IE→GB', originId: 'dublin', destinationId: 'birmingham' },
+  { id: 'gb-london-manchester', label: 'London → Manchester', flag: '🇬🇧', note: 'Single region', originId: 'london', destinationId: 'manchester' },
+  { id: 'fr-paris-lyon', label: 'Paris → Lyon', flag: '🇫🇷', note: 'Single region', originId: 'paris', destinationId: 'lyon' },
+  { id: 'fr-paris-marseille', label: 'Paris → Marseille', flag: '🇫🇷', note: 'Single region', originId: 'paris', destinationId: 'marseille' },
 ];
 
 function defaultDeparture() {
@@ -27,38 +64,118 @@ function defaultDeparture() {
 export function BookJourney() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedRoute, setSelectedRoute] = useState<RoutePreset | null>(null);
-  const [originLat, setOriginLat] = useState('53.3498');
-  const [originLng, setOriginLng] = useState('-6.2603');
-  const [destLat, setDestLat]   = useState('51.8969');
-  const [destLng, setDestLng]   = useState('-8.4863');
+  const [selectedRoute, setSelectedRoute] = useState<string>('');
+  const [originId, setOriginId] = useState<string>('dublin');
+  const [destinationId, setDestinationId] = useState<string>('cork');
   const [datetime, setDatetime] = useState(defaultDeparture());
   const [plateNumber, setPlateNumber] = useState(user?.plateNumber || '');
+  const [routePreview, setRoutePreview] = useState<RoutePreviewOut | null>(null);
+  const [checkingRoute, setCheckingRoute] = useState(false);
+  const [previewError, setPreviewError] = useState('');
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState<BookingOut | null>(null);
   const [error, setError]       = useState('');
 
+  const origin = originId ? WAYPOINT_BY_ID[originId] : null;
+  const destination = destinationId ? WAYPOINT_BY_ID[destinationId] : null;
+  const isCrossRegion = !!origin && !!destination && origin.region !== destination.region;
+
+  const canSubmit = useMemo(
+    () => !!origin && !!destination && !!datetime && !!routePreview?.route_available && !checkingRoute,
+    [origin, destination, datetime, routePreview, checkingRoute]
+  );
+
   const handleRouteSelect = (route: RoutePreset) => {
-    setSelectedRoute(route);
-    setOriginLat(String(route.olat));
-    setOriginLng(String(route.olng));
-    setDestLat(String(route.dlat));
-    setDestLng(String(route.dlng));
+    setSelectedRoute(route.id);
+    setOriginId(route.originId);
+    setDestinationId(route.destinationId);
     setResult(null);
     setError('');
   };
 
+  const handleMapPointClick = (id: string) => {
+    setSelectedRoute('');
+    setResult(null);
+    setError('');
+    if (!originId) {
+      setOriginId(id);
+      return;
+    }
+    if (originId === id) {
+      setOriginId('');
+      setDestinationId('');
+      return;
+    }
+    if (!destinationId) {
+      setDestinationId(id);
+      return;
+    }
+    if (destinationId === id) {
+      setDestinationId('');
+      return;
+    }
+    setDestinationId(id);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkRoute() {
+      if (!origin || !destination || !datetime) {
+        setRoutePreview(null);
+        setPreviewError('');
+        return;
+      }
+      setCheckingRoute(true);
+      setPreviewError('');
+      try {
+        const res = await previewRoute({
+          origin_lat: origin.lat,
+          origin_lng: origin.lng,
+          destination_lat: destination.lat,
+          destination_lng: destination.lng,
+          departure_time: new Date(datetime).toISOString(),
+        });
+        if (cancelled) return;
+        setRoutePreview(res.data);
+        if (!res.data.route_available) {
+          setPreviewError(res.data.reason || 'No valid path found between origin and destination.');
+        }
+      } catch (err: any) {
+        if (cancelled) return;
+        setRoutePreview(null);
+        setPreviewError(err.response?.data?.detail || 'Could not validate route right now.');
+      } finally {
+        if (!cancelled) setCheckingRoute(false);
+      }
+    }
+
+    checkRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [origin, destination, datetime]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!origin || !destination) {
+      setError('Select origin and destination from the map first.');
+      return;
+    }
+    if (!routePreview?.route_available) {
+      setError(previewError || 'No valid path found between origin and destination.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setResult(null);
     try {
       const res = await createBooking({
-        origin_lat: parseFloat(originLat),
-        origin_lng: parseFloat(originLng),
-        destination_lat: parseFloat(destLat),
-        destination_lng: parseFloat(destLng),
+        origin_lat: origin.lat,
+        origin_lng: origin.lng,
+        destination_lat: destination.lat,
+        destination_lng: destination.lng,
         departure_time: new Date(datetime).toISOString(),
         ...(plateNumber ? { plate_number: plateNumber.toUpperCase() } : {}),
       });
@@ -127,7 +244,7 @@ export function BookJourney() {
               <div className="grid grid-cols-2 gap-3">
                 {ROUTE_PRESETS.map(route => (
                   <button key={route.id} type="button" onClick={() => handleRouteSelect(route)}
-                    className={`p-4 rounded-[10px] border-2 text-left transition-all hover:-translate-y-[1px] ${selectedRoute?.id === route.id ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--border)] hover:border-[var(--accent)]/40'}`}>
+                    className={`p-4 rounded-[10px] border-2 text-left transition-all hover:-translate-y-[1px] ${selectedRoute === route.id ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--border)] hover:border-[var(--accent)]/40'}`}>
                     <div className="text-2xl mb-1">{route.flag}</div>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }} className="text-sm mb-1">{route.label}</div>
                     <div className="text-xs text-[var(--muted-foreground)]">{route.note}</div>
@@ -136,7 +253,7 @@ export function BookJourney() {
               </div>
             </div>
 
-            {selectedRoute?.isCrossRegion && (
+            {isCrossRegion && (
               <div className="bg-[var(--violet)]/10 border border-[var(--violet)]/30 rounded-lg p-4 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="flex items-start gap-3">
                   <span className="text-xl">⚡</span>
@@ -148,44 +265,57 @@ export function BookJourney() {
               </div>
             )}
 
-            {/* Origin */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[var(--green)]"></div>
-                <span className="text-xs font-semibold tracking-wide" style={{ fontFamily: 'var(--font-display)' }}>ORIGIN</span>
-                {selectedRoute && <span className="px-2 py-0.5 bg-[var(--muted)] rounded-full text-xs" style={{ fontFamily: 'var(--font-mono)' }}>{selectedRoute.originRegion}</span>}
+            <div>
+              <label className="block text-sm mb-2 text-[var(--foreground)]">Pick on map (click two points)</label>
+              <div className="bg-white border border-[var(--border)] rounded-[10px] p-3">
+                <MapContainer center={[52.0, -2.0]} zoom={5} className="h-[360px] w-full rounded-lg z-0" scrollWheelZoom>
+                  <TileLayer
+                    attribution='&copy; OpenStreetMap contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  {origin && destination && (
+                    <Polyline
+                      positions={[
+                        [origin.lat, origin.lng],
+                        [destination.lat, destination.lng],
+                      ]}
+                      pathOptions={{ color: '#1a1aff', dashArray: '8 8', weight: 3 }}
+                    />
+                  )}
+                  {WAYPOINTS.map((wp) => {
+                    const isOrigin = wp.id === originId;
+                    const isDestination = wp.id === destinationId;
+                    const fillColor = isOrigin ? '#00c26f' : isDestination ? '#f03e3e' : '#2563eb';
+                    return (
+                      <CircleMarker
+                        key={wp.id}
+                        center={[wp.lat, wp.lng]}
+                        radius={isOrigin || isDestination ? 9 : 7}
+                        pathOptions={{ color: '#ffffff', weight: 2, fillColor, fillOpacity: 0.95 }}
+                        eventHandlers={{ click: () => handleMapPointClick(wp.id) }}
+                      >
+                        <Popup>
+                          <div className="text-sm">
+                            <strong>{wp.label}</strong>
+                            <br />
+                            {wp.region}
+                            <br />
+                            Click to select
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                    );
+                  })}
+                </MapContainer>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs mb-1.5 text-[var(--muted-foreground)]">Latitude</label>
-                  <input type="text" value={originLat} onChange={e => setOriginLat(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }}
-                    className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[10px] focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[var(--ring)] transition-all" required />
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="px-3 py-2 rounded-lg bg-[var(--green-bg)] border border-[var(--border)]">
+                  <strong>Origin:</strong>{' '}
+                  {origin ? `${origin.label} (${origin.region})` : 'Not selected'}
                 </div>
-                <div>
-                  <label className="block text-xs mb-1.5 text-[var(--muted-foreground)]">Longitude</label>
-                  <input type="text" value={originLng} onChange={e => setOriginLng(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }}
-                    className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[10px] focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[var(--ring)] transition-all" required />
-                </div>
-              </div>
-            </div>
-
-            {/* Destination */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[var(--red)]"></div>
-                <span className="text-xs font-semibold tracking-wide" style={{ fontFamily: 'var(--font-display)' }}>DESTINATION</span>
-                {selectedRoute && <span className="px-2 py-0.5 bg-[var(--muted)] rounded-full text-xs" style={{ fontFamily: 'var(--font-mono)' }}>{selectedRoute.destRegion}</span>}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs mb-1.5 text-[var(--muted-foreground)]">Latitude</label>
-                  <input type="text" value={destLat} onChange={e => setDestLat(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }}
-                    className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[10px] focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[var(--ring)] transition-all" required />
-                </div>
-                <div>
-                  <label className="block text-xs mb-1.5 text-[var(--muted-foreground)]">Longitude</label>
-                  <input type="text" value={destLng} onChange={e => setDestLng(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }}
-                    className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[10px] focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[var(--ring)] transition-all" required />
+                <div className="px-3 py-2 rounded-lg bg-[var(--red-bg)] border border-[var(--border)]">
+                  <strong>Destination:</strong>{' '}
+                  {destination ? `${destination.label} (${destination.region})` : 'Not selected'}
                 </div>
               </div>
             </div>
@@ -194,6 +324,33 @@ export function BookJourney() {
               <label className="block text-sm mb-2 text-[var(--foreground)]">Departure Time</label>
               <input type="datetime-local" value={datetime} onChange={e => setDatetime(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-[var(--border)] rounded-[10px] focus:outline-none focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[var(--ring)] transition-all" required />
+            </div>
+
+            <div className="rounded-lg border border-[var(--border)] p-4 bg-[var(--surface)]/70">
+              <p className="text-sm font-semibold mb-2">Route Check</p>
+              {checkingRoute ? (
+                <p className="text-sm text-[var(--muted-foreground)]">Checking route availability…</p>
+              ) : routePreview?.route_available ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-[var(--green)]">
+                    Route available • {routePreview.segments.length} segment(s) • {routePreview.estimated_duration_minutes} min
+                  </p>
+                  <p className="text-xs text-[var(--muted-foreground)]" style={{ fontFamily: 'var(--font-mono)' }}>
+                    {routePreview.region_chain.join(' → ')}
+                  </p>
+                  <div className="space-y-1 max-h-28 overflow-auto pr-1">
+                    {routePreview.segments.slice(0, 6).map((s, idx) => (
+                      <p key={`${s.segment_id}-${idx}`} className="text-xs text-[var(--foreground)]/80">
+                        {idx + 1}. {s.segment_name} ({s.region}) • {s.distance_km.toFixed(1)} km
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--red)]">
+                  {previewError || 'Select two points to validate route.'}
+                </p>
+              )}
             </div>
 
             <div>
@@ -208,15 +365,23 @@ export function BookJourney() {
 
             {error && <div className="text-sm text-[var(--red)] bg-red-50 px-4 py-3 rounded-lg">{error}</div>}
 
-            <button type="submit" disabled={loading || !selectedRoute}
+            <button type="submit" disabled={loading || !canSubmit}
               style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}
               className="w-full bg-[var(--ink)] text-white py-3.5 rounded-[10px] hover:-translate-y-[1px] active:translate-y-0 transition-transform disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  {selectedRoute?.isCrossRegion ? 'Submitting via SAGA…' : 'Submitting…'}
+                  {isCrossRegion ? 'Submitting via SAGA…' : 'Submitting…'}
                 </span>
-              ) : 'Request booking →'}
+              ) : !origin || !destination ? (
+                'Select origin + destination'
+              ) : routePreview?.route_available === false ? (
+                'Route unavailable'
+              ) : checkingRoute ? (
+                'Checking route…'
+              ) : (
+                'Request booking →'
+              )}
             </button>
           </form>
         </div>

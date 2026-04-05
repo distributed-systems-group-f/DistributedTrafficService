@@ -19,6 +19,8 @@ x-common-env: &common-env
 x-service-depends: &service-depends
   postgres:
     condition: service_healthy
+  db_bootstrap:
+    condition: service_completed_successfully
   redis:
     condition: service_healthy
   rabbitmq:
@@ -44,8 +46,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -60,11 +65,30 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 15
+
+  db_bootstrap:
+    image: postgres:15
+    environment:
+      PGPASSWORD: dev_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./database/init.sql:/init.sql:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        until pg_isready -h postgres -U traffic_admin -d traffic_service; do sleep 1; done
+        psql -h postgres -U traffic_admin -d traffic_service -f /init.sql
+    restart: "no"
 
   api_gateway:
     build: ./services/api_gateway
@@ -151,3 +175,5 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
+  rabbitmq_data:

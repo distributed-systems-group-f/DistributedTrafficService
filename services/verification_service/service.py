@@ -72,8 +72,8 @@ async def _lookup_db(db: AsyncSession, plate: str) -> VerificationResult | None:
                 b.destination_lat,
                 b.destination_lng
             FROM public.bookings b
-            JOIN auth.users u ON u.id::text = b.driver_id::text
-            WHERE u.plate_number = :plate
+                        LEFT JOIN auth.users u ON u.id::text = b.driver_id::text
+                        WHERE UPPER(COALESCE(NULLIF(b.plate_number, ''), u.plate_number, '')) = :plate
               AND b.status = 'CONFIRMED'
               AND b.departure_time >= :window_start
               AND b.departure_time <= :now

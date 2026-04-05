@@ -3,8 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from shared.database import get_db
 from shared.auth import get_current_user
-from shared.exceptions import BookingNotFoundError, SagaRollbackError
-from schemas import BookingCreateRequest, BookingOut, ReservationOut
+from shared.exceptions import BookingNotFoundError, SagaRollbackError, RouteNotFoundError
+from schemas import (
+    BookingCreateRequest,
+    BookingOut,
+    ReservationOut,
+    RoutePreviewRequest,
+    RoutePreviewOut,
+)
 import service
 
 router = APIRouter()
@@ -52,6 +58,25 @@ async def create_booking(
         )
     except SagaRollbackError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.post("/preview-route", response_model=RoutePreviewOut)
+async def preview_route(
+    req: RoutePreviewRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        return await service.preview_route(
+            db=db,
+            origin_lat=req.origin_lat,
+            origin_lng=req.origin_lng,
+            destination_lat=req.destination_lat,
+            destination_lng=req.destination_lng,
+            departure_time=req.departure_time,
+        )
+    except RouteNotFoundError as e:
+        return RoutePreviewOut(route_available=False, reason=str(e))
 
 
 @router.get("/{booking_id}", response_model=BookingOut)

@@ -17,9 +17,38 @@ export interface BookingOut {
   segments?: { segment_id: string; region: string }[];
 }
 
+export interface RoutePreviewPayload {
+  origin_lat: number;
+  origin_lng: number;
+  destination_lat: number;
+  destination_lng: number;
+  departure_time: string;
+}
+
+export interface RoutePreviewSegment {
+  segment_id: string;
+  segment_name: string;
+  region: string;
+  distance_km: number;
+  duration_minutes: number;
+  slot_start: string;
+  slot_end: string;
+}
+
+export interface RoutePreviewOut {
+  route_available: boolean;
+  reason?: string | null;
+  estimated_duration_minutes?: number | null;
+  region_chain: string[];
+  segments: RoutePreviewSegment[];
+}
+
 // POST /bookings
 export const createBooking = (data: BookingPayload) =>
   api.post<BookingOut>('/bookings', data);
+
+export const previewRoute = (data: RoutePreviewPayload) =>
+  api.post<RoutePreviewOut>('/bookings/preview-route', data);
 
 // GET /bookings/my/journeys
 export const getMyJourneys = () =>

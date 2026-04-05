@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from shared.database import get_session_factory, get_engine
+from shared.database import get_session_factory
 from models import BookingEvent
 import uuid
 
@@ -8,8 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 async def record_event(event_type: str, booking_id: str, driver_id: str, **kwargs):
-    engine = get_engine()
-    factory = get_session_factory(engine)
+    factory = get_session_factory()
     async with factory() as db:
         event = BookingEvent(
             id=str(uuid.uuid4()),

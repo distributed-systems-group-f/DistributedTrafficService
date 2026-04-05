@@ -19,3 +19,11 @@ class CapacityReport(BaseModel):
     booked_count: int
     max_capacity: int
     utilization_pct: float
+
+
+class UsageReport(BaseModel):
+    total_events: int
+    last_24h_events: int
+    by_event_type: Dict[str, int]
+    by_region: Dict[str, int]
+    generated_at: datetime

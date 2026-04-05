@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_event(payload: dict):
-    event_type = payload.get("routing_key") or "unknown"
+    event_type = payload.get("event_type") or payload.get("routing_key") or "unknown"
     booking_id = payload.get("booking_id", "unknown")
     driver_id = payload.get("driver_id", "unknown")
     logger.info(f"Analytics received: {event_type}")
@@ -26,11 +26,8 @@ async def handle_event(payload: dict):
 
 
 async def start_consumer():
-    try:
-        await consume_events(
-            queue_name="analytics_service",
-            routing_keys=["booking.confirmed", "booking.failed", "booking.cancelled"],
-            handler=handle_event,
-        )
-    except Exception as e:
-        logger.error(f"Analytics consumer failed: {e}")
+    await consume_events(
+        queue_name="analytics_service",
+        routing_keys=["booking.confirmed", "booking.failed", "booking.cancelled"],
+        handler=handle_event,
+    )

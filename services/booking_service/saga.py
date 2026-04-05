@@ -1,52 +1,14 @@
-import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from models import SegmentReservation
 from shared.messaging import publish_event
-from shared.exceptions import CapacityExceededError, SagaRollbackError
+from shared.exceptions import CapacityExceededError, SagaRollbackError, SegmentNotFoundError
 from distributed_lock import segment_lock
 from capacity import check_capacity, reserve_segment, release_segment
+from routing import resolve_route, REGION_SCHEMA_MAP
 
 logger = logging.getLogger(__name__)
-
-REGION_SCHEMA_MAP = {
-    "EU_WEST_IRELAND": "region_ireland",
-    "EU_WEST_UK": "region_uk",
-    "EU_WEST_FRANCE": "region_france",
-}
-
-# Simple route resolution: return one segment per region based on coordinates
-def resolve_route(origin_lat, origin_lng, dest_lat, dest_lng, departure_time):
-    """
-    Simplified route resolver. In production this would call a routing API.
-    Returns a list of (segment_id, region) tuples.
-    """
-    # Dummy logic: assign region based on lat/lng ranges
-    def region_for(lat, lng):
-        if 51.0 <= lat <= 55.5 and -10.5 <= lng <= -6.0:
-            return "EU_WEST_IRELAND"
-        elif 49.9 <= lat <= 58.7 and -5.7 <= lng <= 1.8:
-            return "EU_WEST_UK"
-        else:
-            return "EU_WEST_FRANCE"
-
-    origin_region = region_for(origin_lat, origin_lng)
-    dest_region = region_for(dest_lat, dest_lng)
-
-    segments = []
-    # Use first available segment from each region (simplified)
-    seen_regions = set()
-    for region in [origin_region, dest_region]:
-        if region not in seen_regions:
-            seen_regions.add(region)
-            segments.append({
-                "segment_id": str(uuid.uuid5(uuid.NAMESPACE_DNS, region)),
-                "region": region,
-                "slot_start": departure_time.replace(minute=0, second=0, microsecond=0),
-                "slot_end": departure_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1),
-            })
-
-    return segments
 
 
 async def execute_booking_saga(
@@ -59,13 +21,20 @@ async def execute_booking_saga(
     dest_lng: float,
     departure_time: datetime,
     plate_number: str | None = None,
-) -> list[dict]:
+) -> dict:
     """
     Executes the booking saga.
     - Single region: local transaction
     - Multi-region: saga with compensating transactions on failure
     """
-    route_segments = resolve_route(origin_lat, origin_lng, dest_lat, dest_lng, departure_time)
+    route_segments, estimated_duration_minutes = await resolve_route(
+        db=db,
+        origin_lat=origin_lat,
+        origin_lng=origin_lng,
+        dest_lat=dest_lat,
+        dest_lng=dest_lng,
+        departure_time=departure_time,
+    )
     reserved = []
 
     try:
@@ -75,12 +44,12 @@ async def execute_booking_saga(
 
             async with segment_lock(seg["segment_id"], slot_key):
                 try:
-                    cap = await check_capacity(db, schema, seg["segment_id"], departure_time)
+                    cap = await check_capacity(db, schema, seg["segment_id"], seg["slot_start"])
                     if cap["booked"] >= cap["max"]:
                         raise CapacityExceededError(
                             f"Segment {seg['segment_id']} is full for slot {slot_key}"
                         )
-                except Exception:
+                except SegmentNotFoundError:
                     # Segment may not exist in seed data — skip gracefully in dev
                     cap = {"slot_start": seg["slot_start"], "slot_end": seg["slot_end"]}
 
@@ -101,7 +70,19 @@ async def execute_booking_saga(
                     "schema": schema,
                     "slot_start": seg["slot_start"],
                     "slot_end": seg["slot_end"],
+                    "duration_minutes": seg.get("duration_minutes", 0),
                 })
+
+                db.add(
+                    SegmentReservation(
+                        booking_id=booking_id,
+                        segment_id=seg["segment_id"],
+                        region=seg["region"],
+                        time_slot_start=seg["slot_start"],
+                        time_slot_end=seg["slot_end"],
+                        status="CONFIRMED",
+                    )
+                )
 
         await db.commit()
 
@@ -109,6 +90,7 @@ async def execute_booking_saga(
         await publish_event(
             routing_key="booking.confirmed",
             payload={
+                "event_type": "booking.confirmed",
                 "booking_id": booking_id,
                 "driver_id": driver_id,
                 "plate_number": plate_number,
@@ -119,7 +101,10 @@ async def execute_booking_saga(
                 "departure_time": departure_time.isoformat(),
             },
         )
-        return reserved
+        return {
+            "reservations": reserved,
+            "estimated_duration_minutes": estimated_duration_minutes,
+        }
 
     except Exception as e:
         logger.error(f"Saga failed for booking {booking_id}: {e}. Rolling back.")
@@ -134,6 +119,12 @@ async def execute_booking_saga(
 
         await publish_event(
             routing_key="booking.failed",
-            payload={"booking_id": booking_id, "driver_id": driver_id, "reason": str(e)},
+            payload={
+                "event_type": "booking.failed",
+                "booking_id": booking_id,
+                "driver_id": driver_id,
+                "plate_number": plate_number,
+                "reason": str(e),
+            },
         )
         raise SagaRollbackError(str(e)) from e

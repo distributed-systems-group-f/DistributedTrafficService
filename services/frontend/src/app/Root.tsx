@@ -6,7 +6,7 @@ const PUBLIC_ROUTES = ['/signin', '/register'];
 
 function defaultRedirect(role: string): string {
   if (role === 'enforcement') return '/verify';
-  if (role === 'admin') return '/journeys';
+  if (role === 'admin') return '/dashboard';
   return '/book'; // driver lands on Book first
 }
 

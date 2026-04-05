@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BookingCreateRequest(BaseModel):
@@ -27,3 +27,29 @@ class BookingOut(BaseModel):
     estimated_duration_minutes: Optional[int] = None
     message: Optional[str] = None
     created_at: datetime
+
+
+class RoutePreviewRequest(BaseModel):
+    origin_lat: float
+    origin_lng: float
+    destination_lat: float
+    destination_lng: float
+    departure_time: datetime
+
+
+class RoutePreviewSegment(BaseModel):
+    segment_id: str
+    segment_name: str
+    region: str
+    distance_km: float
+    duration_minutes: int
+    slot_start: datetime
+    slot_end: datetime
+
+
+class RoutePreviewOut(BaseModel):
+    route_available: bool
+    reason: Optional[str] = None
+    estimated_duration_minutes: Optional[int] = None
+    region_chain: List[str] = Field(default_factory=list)
+    segments: List[RoutePreviewSegment] = Field(default_factory=list)

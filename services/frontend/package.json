@@ -65,7 +65,9 @@
     "vaul": "1.1.2",
     "axios": "1.7.2",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "leaflet": "1.9.4",
+    "react-leaflet": "4.2.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
