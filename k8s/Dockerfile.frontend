@@ -1,6 +1,5 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-# pnpm is faster for this dep-heavy project
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile 2>/dev/null || npm install
@@ -9,7 +8,6 @@ RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/templates/default.conf.template
-# Default for docker-compose; override via env in K8s
-ENV API_GATEWAY_URL="http://api_gateway:8000/"
+# Use K8s-specific nginx config if present, else fall back to default
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 3000

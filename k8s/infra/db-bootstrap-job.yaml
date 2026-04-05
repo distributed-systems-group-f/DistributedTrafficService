@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-bootstrap
+  namespace: traffic-system
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:15
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h postgres -U traffic_admin -d traffic_service; do
+                echo "Waiting for postgres..."
+                sleep 2
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: traffic-secrets
+                  key: POSTGRES_PASSWORD
+      containers:
+        - name: bootstrap
+          image: postgres:15
+          command:
+            - /bin/sh
+            - -c
+            - psql -h postgres -U traffic_admin -d traffic_service -f /init.sql
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: traffic-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: init-sql
+              mountPath: /init.sql
+              subPath: init.sql
+      volumes:
+        - name: init-sql
+          configMap:
+            name: postgres-init
