@@ -1,0 +1,44 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - "shared/**"
+      - "database/**"
+      - "docker-compose.yml"
+      - "docker-compose.aws.yml"
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/DistributedTrafficService
+
+            echo "==> Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Rebuilding and restarting changed services..."
+            docker compose -f docker-compose.yml -f docker-compose.aws.yml build --pull
+            docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --remove-orphans
+
+            echo "==> Waiting for health checks..."
+            sleep 10
+            docker compose -f docker-compose.yml -f docker-compose.aws.yml ps
+
+            echo "==> Deployment complete."

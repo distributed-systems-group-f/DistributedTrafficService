@@ -46,9 +46,12 @@ SEGMENTS = {
 
 
 async def seed():
-    conn = await asyncpg.connect(
-        "postgresql://traffic_admin:dev_password@localhost:5432/traffic_service"
+    import os
+    dsn = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://traffic_admin:dev_password@localhost:5432/traffic_service",
     )
+    conn = await asyncpg.connect(dsn)
     try:
         for schema, segments in SEGMENTS.items():
             for name, slat, slng, elat, elng, cap in segments:

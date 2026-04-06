@@ -18,7 +18,12 @@ def get_engine(database_url: str | None = None):
 
     settings = get_settings()
     url = database_url or settings.database_url
-    engine = create_async_engine(url, echo=False, pool_pre_ping=True)
+    engine = create_async_engine(
+        url,
+        echo=False,
+        pool_pre_ping=True,
+        execution_options={"isolation_level": "REPEATABLE READ"},
+    )
     if database_url is None:
         _engine = engine
     return engine

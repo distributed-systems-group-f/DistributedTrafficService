@@ -1,54 +1,36 @@
 version: "3.9"
+# Standalone production compose for AWS deployment.
+# Run on each VM with its own .env file:
+#   docker compose -f docker-compose.aws.yml up -d --build
+#
+# No local postgres — all services connect to RDS via RDS_HOST in .env
 
 x-common-env: &common-env
-  POSTGRES_HOST: postgres
+  POSTGRES_HOST: ${RDS_HOST:?RDS_HOST required}
   POSTGRES_PORT: 5432
-  POSTGRES_USER: traffic_admin
-  POSTGRES_PASSWORD: dev_password
-  POSTGRES_DB: traffic_service
+  POSTGRES_USER: ${DB_USER:-traffic_admin}
+  POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+  POSTGRES_DB: ${DB_NAME:-traffic_service}
   REDIS_HOST: redis
   REDIS_PORT: 6379
   RABBITMQ_HOST: rabbitmq
   RABBITMQ_PORT: 5672
-  RABBITMQ_USER: guest
-  RABBITMQ_PASSWORD: guest
-  JWT_SECRET: dev-secret-change-in-production
+  RABBITMQ_USER: ${RABBITMQ_USER:-traffic}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
   JWT_ALGORITHM: HS256
   JWT_EXPIRY_MINUTES: 60
 
-x-service-depends: &service-depends
-  postgres:
-    condition: service_healthy
-  db_bootstrap:
-    condition: service_completed_successfully
+x-infra-depends: &infra-depends
   redis:
     condition: service_healthy
   rabbitmq:
     condition: service_healthy
 
 services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: traffic_admin
-      POSTGRES_PASSWORD: dev_password
-      POSTGRES_DB: traffic_service
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U traffic_admin -d traffic_service"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -61,10 +43,9 @@ services:
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-traffic}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}
     ports:
-      - "5672:5672"
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -74,23 +55,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
-
-  db_bootstrap:
-    image: postgres:15
-    environment:
-      PGPASSWORD: dev_password
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./database/init.sql:/init.sql:ro
-    command:
-      - /bin/sh
-      - -c
-      - |
-        until pg_isready -h postgres -U traffic_admin -d traffic_service; do sleep 1; done
-        psql -h postgres -U traffic_admin -d traffic_service -f /init.sql
-    restart: "no"
 
   api_gateway:
     build: ./services/api_gateway
@@ -107,7 +71,7 @@ services:
       - ./shared:/app/shared
     restart: unless-stopped
     depends_on:
-      <<: *service-depends
+      <<: *infra-depends
 
   auth_service:
     build: ./services/auth_service
@@ -120,7 +84,7 @@ services:
       - ./shared:/app/shared
     restart: unless-stopped
     depends_on:
-      <<: *service-depends
+      <<: *infra-depends
 
   booking_service:
     build: ./services/booking_service
@@ -129,11 +93,13 @@ services:
     environment:
       <<: *common-env
       SERVICE_PORT: 8002
+      LOCAL_REGION: ${LOCAL_REGION:?LOCAL_REGION required}
+      PEER_BOOKING_URL: ${PEER_BOOKING_URL:-}
     volumes:
       - ./shared:/app/shared
     restart: unless-stopped
     depends_on:
-      <<: *service-depends
+      <<: *infra-depends
 
   verification_service:
     build: ./services/verification_service
@@ -146,7 +112,7 @@ services:
       - ./shared:/app/shared
     restart: unless-stopped
     depends_on:
-      <<: *service-depends
+      <<: *infra-depends
 
   notification_service:
     build: ./services/notification_service
@@ -159,7 +125,7 @@ services:
       - ./shared:/app/shared
     restart: unless-stopped
     depends_on:
-      <<: *service-depends
+      <<: *infra-depends
 
   analytics_service:
     build: ./services/analytics_service
@@ -172,7 +138,7 @@ services:
       - ./shared:/app/shared
     restart: unless-stopped
     depends_on:
-      <<: *service-depends
+      <<: *infra-depends
 
   frontend:
     build: ./services/frontend
@@ -183,6 +149,5 @@ services:
       - api_gateway
 
 volumes:
-  postgres_data:
   redis_data:
   rabbitmq_data:

@@ -29,6 +29,15 @@ class BookingOut(BaseModel):
     created_at: datetime
 
 
+class PeerReserveRequest(BaseModel):
+    booking_id: str
+    segment_id: str
+    region: str
+    driver_id: str
+    slot_start: datetime
+    slot_end: datetime
+
+
 class RoutePreviewRequest(BaseModel):
     origin_lat: float
     origin_lng: float
