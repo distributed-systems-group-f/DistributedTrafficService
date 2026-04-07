@@ -24,6 +24,7 @@ class CapacityReport(BaseModel):
 class UsageReport(BaseModel):
     total_events: int
     last_24h_events: int
+    recent_footfall_pct: float
     by_event_type: Dict[str, int]
     by_region: Dict[str, int]
     generated_at: datetime

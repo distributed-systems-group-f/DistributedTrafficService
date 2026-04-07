@@ -125,7 +125,7 @@ async def usage_report(
 ):
     total_events = await db.scalar(select(func.count(BookingEvent.id))) or 0
 
-    last_24h_cutoff = datetime.utcnow() - timedelta(hours=24)
+    last_24h_cutoff = datetime.utcnow() - timedelta(days=7)
     last_24h_events = (
         await db.scalar(
             select(func.count(BookingEvent.id)).where(BookingEvent.created_at >= last_24h_cutoff)
@@ -145,9 +145,12 @@ async def usage_report(
     )
     by_region = {region: count for region, count in by_region_result.all() if region}
 
+    recent_footfall_pct = round(last_24h_events / total_events * 100.0, 1) if total_events > 0 else 0.0
+
     return UsageReport(
         total_events=total_events,
         last_24h_events=last_24h_events,
+        recent_footfall_pct=recent_footfall_pct,
         by_event_type=by_event_type,
         by_region=by_region,
         generated_at=datetime.utcnow(),
