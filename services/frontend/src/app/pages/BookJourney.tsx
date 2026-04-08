@@ -186,18 +186,19 @@ export function BookJourney() {
 
       let msg = 'Booking request failed. Please try again.';
 
-      if (status === 503 || status === 502) {
-        msg = 'A regional node is currently unavailable. Local bookings may still work — cross-region journeys are temporarily suspended.';
+      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+      const isNetworkError = !err.response;
+
+      if (isTimeout || isNetworkError) {
+        msg = 'A regional node appears to be down. The service is partially available — try booking within a single region (e.g. London → Manchester or Dublin → Cork).';
+      } else if (status === 503 || status === 502) {
+        msg = 'A regional node is currently unavailable. Try a same-region journey — cross-region bookings are temporarily suspended.';
       } else if (status === 409) {
-        if (detail.toLowerCase().includes('peer') || detail.toLowerCase().includes('saga')) {
-          msg = isCrossRegion
-            ? 'Cross-region SAGA failed — the peer regional node could not be reached. Your local reservations have been rolled back. Try a same-region journey or retry later.'
-            : 'Capacity full for this time slot. Please try a different departure time.';
+        if (detail.toLowerCase().includes('peer') || detail.toLowerCase().includes('saga') || detail.toLowerCase().includes('rollback')) {
+          msg = 'Cross-region SAGA failed — the peer regional node could not be reached. Your reservations have been rolled back automatically. Try a same-region journey or retry later.';
         } else {
           msg = 'Capacity full for this time slot. Please try a different departure time.';
         }
-      } else if (!err.response) {
-        msg = 'Cannot reach the service. Check your connection or try again shortly.';
       } else if (detail) {
         msg = detail;
       }
