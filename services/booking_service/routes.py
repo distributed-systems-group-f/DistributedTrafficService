@@ -1,4 +1,7 @@
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from shared.database import get_db
@@ -132,6 +135,10 @@ async def peer_reserve(
     db: AsyncSession = Depends(get_db),
 ):
     """Reserve a segment on behalf of a remote VM's saga."""
+    logger.info(
+        f"[PEER-RESERVE] booking={req.booking_id[:8]} segment={req.segment_id[:8]} "
+        f"region={req.region} slot={req.slot_start.isoformat()}"
+    )
     schema = REGION_SCHEMA_MAP.get(req.region)
     if not schema:
         raise HTTPException(status_code=400, detail=f"Unknown region: {req.region}")
@@ -139,6 +146,9 @@ async def peer_reserve(
     async with segment_lock(req.segment_id, req.slot_start.isoformat()):
         cap = await check_capacity(db, schema, req.segment_id, req.slot_start)
         if cap["booked"] >= cap["max"]:
+            logger.warning(
+                f"[PEER-RESERVE] REJECTED booking={req.booking_id[:8]} segment={req.segment_id[:8]} — capacity full"
+            )
             raise HTTPException(status_code=409, detail=f"Segment {req.segment_id} is full")
 
         res_id = await reserve_segment(
@@ -153,6 +163,9 @@ async def peer_reserve(
         )
         await db.commit()
 
+    logger.info(
+        f"[PEER-RESERVE] OK booking={req.booking_id[:8]} segment={req.segment_id[:8]} res_id={res_id[:8]}"
+    )
     return {"reservation_id": res_id, "status": "CONFIRMED"}
 
 
@@ -162,9 +175,11 @@ async def peer_release(
     db: AsyncSession = Depends(get_db),
 ):
     """Roll back all reservations for a booking on this peer (compensating transaction)."""
+    logger.info(f"[PEER-COMPENSATE] Rolling back all reservations for booking={booking_id[:8]}")
     for schema in REGION_SCHEMA_MAP.values():
         await release_segment(db, schema, booking_id)
     await db.commit()
+    logger.info(f"[PEER-COMPENSATE] Done booking={booking_id[:8]}")
     return {"booking_id": booking_id, "status": "CANCELLED"}
 
 
