@@ -14,8 +14,14 @@ from routing import resolve_route, REGION_SCHEMA_MAP
 
 logger = logging.getLogger(__name__)
 
-# Which region this VM owns — all other regions are routed to the peer
-LOCAL_REGION = os.environ.get("LOCAL_REGION", "EU_WEST_IRELAND")
+# Which regions this VM owns — comma-separated for multiple regions.
+# e.g. "EU_WEST_UK,EU_WEST_FRANCE" means this VM handles both UK and France locally.
+# All other regions are routed to the peer.
+LOCAL_REGIONS = {
+    r.strip()
+    for r in os.environ.get("LOCAL_REGION", "EU_WEST_IRELAND").split(",")
+    if r.strip()
+}
 
 # HTTP base URL of the peer booking service (e.g. http://VM2_IP:8002)
 # Empty string means single-VM mode — all regions handled locally
@@ -64,7 +70,7 @@ def _is_local(region: str) -> bool:
     """True if this region is owned by the local VM, or if no peer is configured."""
     if not PEER_BOOKING_URL:
         return True  # single-VM mode — handle everything locally
-    return region == LOCAL_REGION
+    return region in LOCAL_REGIONS
 
 
 async def execute_booking_saga(
