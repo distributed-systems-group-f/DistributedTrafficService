@@ -181,7 +181,28 @@ export function BookJourney() {
       });
       setResult(res.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Booking request failed. Please try again.');
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail || '';
+
+      let msg = 'Booking request failed. Please try again.';
+
+      if (status === 503 || status === 502) {
+        msg = 'A regional node is currently unavailable. Local bookings may still work — cross-region journeys are temporarily suspended.';
+      } else if (status === 409) {
+        if (detail.toLowerCase().includes('peer') || detail.toLowerCase().includes('saga')) {
+          msg = isCrossRegion
+            ? 'Cross-region SAGA failed — the peer regional node could not be reached. Your local reservations have been rolled back. Try a same-region journey or retry later.'
+            : 'Capacity full for this time slot. Please try a different departure time.';
+        } else {
+          msg = 'Capacity full for this time slot. Please try a different departure time.';
+        }
+      } else if (!err.response) {
+        msg = 'Cannot reach the service. Check your connection or try again shortly.';
+      } else if (detail) {
+        msg = detail;
+      }
+
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -364,7 +385,7 @@ export function BookJourney() {
                   <span className="flex items-center gap-1.5"><span style={{width:14,height:3,borderRadius:2,background:'#00c26f',display:'inline-block'}}></span> Ireland</span>
                   <span className="flex items-center gap-1.5"><span style={{width:14,height:3,borderRadius:2,background:'#2563eb',display:'inline-block'}}></span> UK</span>
                   <span className="flex items-center gap-1.5"><span style={{width:14,height:3,borderRadius:2,background:'#f59e0b',display:'inline-block'}}></span> France</span>
-                  <span className="flex items-center gap-1.5"><span style={{width:14,height:3,borderRadius:2,background:'#888',display:'inline-block',borderTop:'2px dashed #888',height:0}}></span> Approach</span>
+                  <span className="flex items-center gap-1.5"><span style={{width:14,height:0,borderRadius:2,background:'#888',display:'inline-block',borderTop:'2px dashed #888'}}></span> Approach</span>
                 </div>
               )}
             </div>

@@ -5,6 +5,13 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d [%(levelname)s] %(name)s — %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+    stream=sys.stdout,
+)
 from shared.health import create_health_router
 from shared.database import init_db, Base, get_engine
 from routes import router
