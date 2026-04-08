@@ -166,3 +166,25 @@ async def peer_release(
         await release_segment(db, schema, booking_id)
     await db.commit()
     return {"booking_id": booking_id, "status": "CANCELLED"}
+
+
+# ---------------------------------------------------------------------------
+# Manual reconciliation trigger — for demo and admin use
+# ---------------------------------------------------------------------------
+
+@router.post("/admin/reconcile", status_code=200)
+async def trigger_reconciliation(
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Manually trigger one reconciliation pass.
+    Cleans up orphaned sagas and partition inconsistencies.
+    Useful for demos: create a partition, heal it, then call this.
+    """
+    from reconciler import run_reconciliation_once
+    result = await run_reconciliation_once()
+    return {
+        "status": "reconciliation_complete",
+        "orphaned_sagas_fixed": result["orphaned_sagas_fixed"],
+        "partition_inconsistencies_fixed": result["partition_inconsistencies_fixed"],
+    }
