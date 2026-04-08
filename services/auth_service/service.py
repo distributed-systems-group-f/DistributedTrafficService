@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -39,6 +40,7 @@ async def register_user(db: AsyncSession, email: str, password: str, role: str, 
         email=email,
         password_hash=hashed,
         role=role,
+        created_at=datetime.utcnow(),
         **kwargs,
     )
     db.add(user)
