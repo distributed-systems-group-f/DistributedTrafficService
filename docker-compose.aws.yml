@@ -13,8 +13,8 @@ x-common-env: &common-env
   POSTGRES_DB: ${DB_NAME:-traffic_service}
   REDIS_HOST: ${REDIS_HOST:-redis}
   REDIS_PORT: ${REDIS_PORT:-6379}
-  RABBITMQ_HOST: rabbitmq
-  RABBITMQ_PORT: 5672
+  RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+  RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
   RABBITMQ_USER: ${RABBITMQ_USER:-traffic}
   RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}
   JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
@@ -49,6 +49,7 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}
     ports:
       - "15672:15672"
+      - "0.0.0.0:5672:5672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     restart: unless-stopped
