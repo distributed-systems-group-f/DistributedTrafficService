@@ -217,6 +217,10 @@ async def resolve_route(
                 "slot_end": slot_end,
                 "distance_km": edge.distance_km,
                 "duration_minutes": duration_minutes,
+                "start_lat": edge.start_lat,
+                "start_lng": edge.start_lng,
+                "end_lat": edge.end_lat,
+                "end_lng": edge.end_lng,
             }
         )
 

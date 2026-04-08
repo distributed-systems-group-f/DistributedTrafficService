@@ -190,6 +190,10 @@ async def preview_route(
                 "duration_minutes": int(seg.get("duration_minutes", 0)),
                 "slot_start": seg["slot_start"],
                 "slot_end": seg["slot_end"],
+                "start_lat": seg.get("start_lat"),
+                "start_lng": seg.get("start_lng"),
+                "end_lat": seg.get("end_lat"),
+                "end_lng": seg.get("end_lng"),
             }
         )
 
