@@ -143,7 +143,11 @@ services:
   frontend:
     build: ./services/frontend
     ports:
-      - "3000:3000"
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot
     restart: unless-stopped
     depends_on:
       - api_gateway
