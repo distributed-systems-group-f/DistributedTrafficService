@@ -19,13 +19,18 @@ async def register_user(db: AsyncSession, email: str, password: str, role: str, 
     # Global distributed lock on email — prevents duplicate registration across VMs
     redis = await get_redis()
     email_key = f"email:registered:{email.lower()}"
+    logger.info(f"[REGISTRATION] Attempting global email lock for {email}")
     claimed = await redis.set(email_key, "1", nx=True, ex=EMAIL_LOCK_TTL)
     if not claimed:
+        logger.warning(f"[REGISTRATION] REJECTED — email {email} already claimed by another node (Redis lock)")
         raise ValueError(f"Email {email} is already registered.")
+    logger.info(f"[REGISTRATION] Global email lock acquired for {email}")
 
     # Also check replica — belt and suspenders
     replica_result = await db.execute(select(ReplicatedUser).where(ReplicatedUser.email == email))
     if replica_result.scalar_one_or_none():
+        await redis.delete(email_key)  # release lock
+        logger.warning(f"[REGISTRATION] REJECTED — email {email} found in peer replica, releasing lock")
         raise ValueError(f"Email {email} is already registered on another regional node.")
 
     hashed = pwd_context.hash(password.encode("utf-8")[:72].decode("utf-8", errors="ignore"))
