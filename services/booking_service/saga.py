@@ -220,10 +220,9 @@ async def execute_booking_saga(
             "estimated_duration_minutes": estimated_duration_minutes,
         }
 
-    except RegionUnavailableError:
-        raise
-
     except Exception as e:
+        is_region_unavailable = isinstance(e, RegionUnavailableError)
+
         logger.error(
             f"[SAGA:{booking_id[:8]}] FAILED — reason='{e}'. "
             f"Rolling back {len(reserved)} reserved segments "
@@ -242,8 +241,8 @@ async def execute_booking_saga(
                 except Exception as rollback_err:
                     logger.error(f"[SAGA:{booking_id[:8]}] COMPENSATE LOCAL FAILED — {rollback_err}")
 
-        # Compensating transactions — peer rollback
-        if peer_reserved and PEER_BOOKING_URL:
+        # Compensating transactions — peer rollback (skip if peer is the one that's down)
+        if peer_reserved and PEER_BOOKING_URL and not is_region_unavailable:
             logger.info(f"[SAGA:{booking_id[:8]}] COMPENSATE PEER — sending rollback to {PEER_BOOKING_URL}")
             await _peer_release(booking_id)
             logger.info(f"[SAGA:{booking_id[:8]}] COMPENSATE PEER — done")
@@ -258,4 +257,7 @@ async def execute_booking_saga(
                 "reason": str(e),
             },
         )
+
+        if is_region_unavailable:
+            raise
         raise SagaRollbackError(str(e)) from e

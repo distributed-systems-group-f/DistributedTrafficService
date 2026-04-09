@@ -68,6 +68,10 @@ async def create_booking(
         raise HTTPException(status_code=503, detail=str(e))
     except SagaRollbackError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        if any(s in str(type(e)) for s in ["Connection", "Timeout", "OperationalError", "Redis"]):
+            raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+        raise
 
 
 @router.post("/preview-route", response_model=RoutePreviewOut)
