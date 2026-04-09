@@ -7,7 +7,7 @@ from models import Booking, SegmentReservation
 from saga import execute_booking_saga
 from routing import resolve_route, REGION_SCHEMA_MAP
 from shared.messaging import publish_event
-from shared.exceptions import BookingNotFoundError, SagaRollbackError, RouteNotFoundError
+from shared.exceptions import BookingNotFoundError, SagaRollbackError, RouteNotFoundError, RegionUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +76,12 @@ async def create_booking(
         booking.status = "CONFIRMED"
         await db.commit()
         await db.refresh(booking)
+    except RegionUnavailableError:
+        booking.status = "REJECTED"
+        db.add(booking)
+        await db.commit()
+        raise
     except SagaRollbackError:
-        # Saga already rolled back — the booking object is detached.
-        # Re-add it so we can persist the REJECTED status.
         booking.status = "REJECTED"
         db.add(booking)
         await db.commit()

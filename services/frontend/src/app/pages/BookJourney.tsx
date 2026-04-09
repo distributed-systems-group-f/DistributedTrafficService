@@ -236,7 +236,7 @@ export function BookJourney() {
                   )}
                 </>
               ) : (
-                <p className="text-white/90 mb-6">Capacity full or SAGA transaction rolled back. Please try a different time slot.</p>
+                <p className="text-white/90 mb-6">Booking could not be completed — capacity full, regional node unavailable, or SAGA rolled back. Please try a different time or route.</p>
               )}
               <button
                 onClick={() => navigate('/journeys')}

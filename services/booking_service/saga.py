@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import SegmentReservation
 from shared.messaging import publish_event
-from shared.exceptions import CapacityExceededError, SagaRollbackError, SegmentNotFoundError
+from shared.exceptions import CapacityExceededError, SagaRollbackError, SegmentNotFoundError, RegionUnavailableError
 from distributed_lock import segment_lock
 from capacity import check_capacity, reserve_segment, release_segment
 from routing import resolve_route, REGION_SCHEMA_MAP
@@ -39,22 +39,28 @@ async def _peer_reserve(
     slot_end: datetime,
 ) -> str:
     """Call the peer VM to reserve a segment in its local DB. Returns reservation_id."""
-    async with httpx.AsyncClient(timeout=PEER_TIMEOUT_SECONDS) as client:
-        resp = await client.post(
-            f"{PEER_BOOKING_URL}/bookings/peer/reserve",
-            json={
-                "booking_id": booking_id,
-                "segment_id": segment_id,
-                "region": region,
-                "driver_id": driver_id,
-                "slot_start": slot_start.isoformat(),
-                "slot_end": slot_end.isoformat(),
-            },
-        )
-        if resp.status_code == 409:
-            raise CapacityExceededError(f"Peer: segment {segment_id} is full")
-        resp.raise_for_status()
-        return resp.json()["reservation_id"]
+    try:
+        async with httpx.AsyncClient(timeout=PEER_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"{PEER_BOOKING_URL}/bookings/peer/reserve",
+                json={
+                    "booking_id": booking_id,
+                    "segment_id": segment_id,
+                    "region": region,
+                    "driver_id": driver_id,
+                    "slot_start": slot_start.isoformat(),
+                    "slot_end": slot_end.isoformat(),
+                },
+            )
+            if resp.status_code == 409:
+                raise CapacityExceededError(f"Peer: segment {segment_id} is full")
+            resp.raise_for_status()
+            return resp.json()["reservation_id"]
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as e:
+        raise RegionUnavailableError(
+            f"Regional node for {region} is currently unavailable. "
+            f"Please try a same-region route or try again later."
+        ) from e
 
 
 async def _peer_release(booking_id: str) -> None:
@@ -213,6 +219,9 @@ async def execute_booking_saga(
             "reservations": reserved,
             "estimated_duration_minutes": estimated_duration_minutes,
         }
+
+    except RegionUnavailableError:
+        raise
 
     except Exception as e:
         logger.error(

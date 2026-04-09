@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from shared.database import get_db
 from shared.auth import get_current_user
-from shared.exceptions import BookingNotFoundError, SagaRollbackError, RouteNotFoundError
+from shared.exceptions import BookingNotFoundError, SagaRollbackError, RouteNotFoundError, RegionUnavailableError
 from schemas import (
     BookingCreateRequest,
     BookingOut,
@@ -64,6 +64,8 @@ async def create_booking(
             estimated_duration_minutes=booking.estimated_duration_minutes,
             created_at=booking.created_at,
         )
+    except RegionUnavailableError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except SagaRollbackError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
