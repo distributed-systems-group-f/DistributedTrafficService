@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from shared.auth import create_access_token
 from shared.exceptions import AuthenticationError, UserNotFoundError
-from shared.messaging import publish_event
+from shared.messaging import publish_replication_event
 from shared.redis_client import get_redis
 from models import User, ReplicatedUser
 
@@ -57,7 +57,7 @@ async def register_user(db: AsyncSession, email: str, password: str, role: str, 
     }
 
     # Publish BEFORE commit — if commit fails, send compensating rollback event
-    await publish_event(routing_key="user.registered", payload=replication_payload)
+    await publish_replication_event(routing_key="user.registered", payload=replication_payload)
     logger.info(f"[REPLICATION] Published user.registered for user={user.id[:8]} email={user.email}")
 
     try:
@@ -70,7 +70,7 @@ async def register_user(db: AsyncSession, email: str, password: str, role: str, 
         await redis.delete(email_key)
         # Compensating transaction — tell peer VM to undo the replication
         try:
-            await publish_event(
+            await publish_replication_event(
                 routing_key="user.registration_failed",
                 payload={"event_type": "user.registration_failed", "user_id": user.id, "email": user.email},
             )

@@ -14,11 +14,18 @@ class Settings(BaseSettings):
     redis_host: str = "localhost"
     redis_port: int = 6379
 
-    # RabbitMQ
+    # RabbitMQ (local — used by booking/notification/analytics)
     rabbitmq_host: str = "localhost"
     rabbitmq_port: int = 5672
     rabbitmq_user: str = "guest"
     rabbitmq_password: str = "guest"
+
+    # RabbitMQ for cross-VM user replication (auth service only)
+    # Defaults to the local broker; set to VM1's IP on VM2 to enable replication
+    replication_rabbitmq_host: str = ""
+    replication_rabbitmq_port: int = 5672
+    replication_rabbitmq_user: str = ""
+    replication_rabbitmq_password: str = ""
 
     # JWT
     jwt_secret: str = "dev-secret-change-in-production"
@@ -48,6 +55,15 @@ class Settings(BaseSettings):
             f"amqp://{self.rabbitmq_user}:{self.rabbitmq_password}"
             f"@{self.rabbitmq_host}:{self.rabbitmq_port}/"
         )
+
+    @property
+    def replication_rabbitmq_url(self) -> str:
+        """URL for cross-VM replication broker. Falls back to local broker if not configured."""
+        host = self.replication_rabbitmq_host or self.rabbitmq_host
+        port = self.replication_rabbitmq_port or self.rabbitmq_port
+        user = self.replication_rabbitmq_user or self.rabbitmq_user
+        password = self.replication_rabbitmq_password or self.rabbitmq_password
+        return f"amqp://{user}:{password}@{host}:{port}/"
 
     class Config:
         env_file = ".env"
