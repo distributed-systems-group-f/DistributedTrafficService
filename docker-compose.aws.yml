@@ -83,6 +83,9 @@ services:
     environment:
       <<: *common-env
       SERVICE_PORT: 8001
+      REPLICATION_RABBITMQ_HOST: ${REPLICATION_RABBITMQ_HOST:-}
+      REPLICATION_RABBITMQ_USER: ${REPLICATION_RABBITMQ_USER:-}
+      REPLICATION_RABBITMQ_PASSWORD: ${REPLICATION_RABBITMQ_PASSWORD:-}
     volumes:
       - ./shared:/app/shared
     restart: unless-stopped
