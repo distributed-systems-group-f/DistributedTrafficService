@@ -7,3 +7,5 @@ bcrypt==4.0.1
 pyjwt==2.8.0
 pydantic-settings==2.2.1
 python-json-logger==2.0.7
+aio-pika==9.4.1
+redis[asyncio]==5.0.4

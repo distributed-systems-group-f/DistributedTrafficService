@@ -33,6 +33,10 @@ export interface RoutePreviewSegment {
   duration_minutes: number;
   slot_start: string;
   slot_end: string;
+  start_lat?: number;
+  start_lng?: number;
+  end_lat?: number;
+  end_lng?: number;
 }
 
 export interface RoutePreviewOut {

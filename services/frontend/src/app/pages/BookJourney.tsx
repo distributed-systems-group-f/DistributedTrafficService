@@ -181,7 +181,29 @@ export function BookJourney() {
       });
       setResult(res.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Booking request failed. Please try again.');
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail || '';
+
+      let msg = 'Booking request failed. Please try again.';
+
+      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+      const isNetworkError = !err.response;
+
+      if (isTimeout || isNetworkError) {
+        msg = 'A regional node appears to be down. The service is partially available — try booking within a single region (e.g. London → Manchester or Dublin → Cork).';
+      } else if (status === 503 || status === 502) {
+        msg = 'A regional node is currently unavailable. Try a same-region journey — cross-region bookings are temporarily suspended.';
+      } else if (status === 409) {
+        if (detail.toLowerCase().includes('peer') || detail.toLowerCase().includes('saga') || detail.toLowerCase().includes('rollback')) {
+          msg = 'Cross-region SAGA failed — the peer regional node could not be reached. Your reservations have been rolled back automatically. Try a same-region journey or retry later.';
+        } else {
+          msg = 'Capacity full for this time slot. Please try a different departure time.';
+        }
+      } else if (detail) {
+        msg = detail;
+      }
+
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -214,7 +236,7 @@ export function BookJourney() {
                   )}
                 </>
               ) : (
-                <p className="text-white/90 mb-6">Capacity full or SAGA transaction rolled back. Please try a different time slot.</p>
+                <p className="text-white/90 mb-6">Booking could not be completed — capacity full, regional node unavailable, or SAGA rolled back. Please try a different time or route.</p>
               )}
               <button
                 onClick={() => navigate('/journeys')}
@@ -273,7 +295,48 @@ export function BookJourney() {
                     attribution='&copy; OpenStreetMap contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  {origin && destination && (
+                  {origin && destination && routePreview?.route_available && routePreview.segments.length > 0 ? (
+                    <>
+                      {/* Dashed approach line: origin to first segment start */}
+                      {routePreview.segments[0].start_lat != null && (
+                        <Polyline
+                          positions={[
+                            [origin.lat, origin.lng],
+                            [routePreview.segments[0].start_lat!, routePreview.segments[0].start_lng!],
+                          ]}
+                          pathOptions={{ color: '#888', dashArray: '6 6', weight: 2, opacity: 0.5 }}
+                        />
+                      )}
+                      {/* Colored route segments */}
+                      {routePreview.segments.map((seg, idx) => {
+                        if (seg.start_lat == null || seg.end_lat == null) return null;
+                        const regionColor =
+                          seg.region === 'EU_WEST_IRELAND' ? '#00c26f' :
+                          seg.region === 'EU_WEST_UK' ? '#2563eb' :
+                          seg.region === 'EU_WEST_FRANCE' ? '#f59e0b' : '#888';
+                        return (
+                          <Polyline
+                            key={`seg-${seg.segment_id}-${idx}`}
+                            positions={[
+                              [seg.start_lat!, seg.start_lng!],
+                              [seg.end_lat!, seg.end_lng!],
+                            ]}
+                            pathOptions={{ color: regionColor, weight: 4, opacity: 0.85 }}
+                          />
+                        );
+                      })}
+                      {/* Dashed approach line: last segment end to destination */}
+                      {routePreview.segments[routePreview.segments.length - 1].end_lat != null && (
+                        <Polyline
+                          positions={[
+                            [routePreview.segments[routePreview.segments.length - 1].end_lat!, routePreview.segments[routePreview.segments.length - 1].end_lng!],
+                            [destination.lat, destination.lng],
+                          ]}
+                          pathOptions={{ color: '#888', dashArray: '6 6', weight: 2, opacity: 0.5 }}
+                        />
+                      )}
+                    </>
+                  ) : origin && destination ? (
                     <Polyline
                       positions={[
                         [origin.lat, origin.lng],
@@ -281,7 +344,7 @@ export function BookJourney() {
                       ]}
                       pathOptions={{ color: '#1a1aff', dashArray: '8 8', weight: 3 }}
                     />
-                  )}
+                  ) : null}
                   {WAYPOINTS.map((wp) => {
                     const isOrigin = wp.id === originId;
                     const isDestination = wp.id === destinationId;
@@ -318,6 +381,14 @@ export function BookJourney() {
                   {destination ? `${destination.label} (${destination.region})` : 'Not selected'}
                 </div>
               </div>
+              {routePreview?.route_available && routePreview.segments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--muted-foreground)]">
+                  <span className="flex items-center gap-1.5"><span style={{width:14,height:3,borderRadius:2,background:'#00c26f',display:'inline-block'}}></span> Ireland</span>
+                  <span className="flex items-center gap-1.5"><span style={{width:14,height:3,borderRadius:2,background:'#2563eb',display:'inline-block'}}></span> UK</span>
+                  <span className="flex items-center gap-1.5"><span style={{width:14,height:3,borderRadius:2,background:'#f59e0b',display:'inline-block'}}></span> France</span>
+                  <span className="flex items-center gap-1.5"><span style={{width:14,height:0,borderRadius:2,background:'#888',display:'inline-block',borderTop:'2px dashed #888'}}></span> Approach</span>
+                </div>
+              )}
             </div>
 
             <div>

@@ -54,6 +54,10 @@ class RoutePreviewSegment(BaseModel):
     duration_minutes: int
     slot_start: datetime
     slot_end: datetime
+    start_lat: Optional[float] = None
+    start_lng: Optional[float] = None
+    end_lat: Optional[float] = None
+    end_lng: Optional[float] = None
 
 
 class RoutePreviewOut(BaseModel):

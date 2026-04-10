@@ -7,15 +7,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import SegmentReservation
 from shared.messaging import publish_event
-from shared.exceptions import CapacityExceededError, SagaRollbackError, SegmentNotFoundError
+from shared.exceptions import CapacityExceededError, SagaRollbackError, SegmentNotFoundError, RegionUnavailableError
 from distributed_lock import segment_lock
 from capacity import check_capacity, reserve_segment, release_segment
 from routing import resolve_route, REGION_SCHEMA_MAP
 
 logger = logging.getLogger(__name__)
 
-# Which region this VM owns — all other regions are routed to the peer
-LOCAL_REGION = os.environ.get("LOCAL_REGION", "EU_WEST_IRELAND")
+# Which regions this VM owns — comma-separated for multiple regions.
+# e.g. "EU_WEST_UK,EU_WEST_FRANCE" means this VM handles both UK and France locally.
+# All other regions are routed to the peer.
+LOCAL_REGIONS = {
+    r.strip()
+    for r in os.environ.get("LOCAL_REGION", "EU_WEST_IRELAND").split(",")
+    if r.strip()
+}
 
 # HTTP base URL of the peer booking service (e.g. http://VM2_IP:8002)
 # Empty string means single-VM mode — all regions handled locally
@@ -33,22 +39,28 @@ async def _peer_reserve(
     slot_end: datetime,
 ) -> str:
     """Call the peer VM to reserve a segment in its local DB. Returns reservation_id."""
-    async with httpx.AsyncClient(timeout=PEER_TIMEOUT_SECONDS) as client:
-        resp = await client.post(
-            f"{PEER_BOOKING_URL}/bookings/peer/reserve",
-            json={
-                "booking_id": booking_id,
-                "segment_id": segment_id,
-                "region": region,
-                "driver_id": driver_id,
-                "slot_start": slot_start.isoformat(),
-                "slot_end": slot_end.isoformat(),
-            },
-        )
-        if resp.status_code == 409:
-            raise CapacityExceededError(f"Peer: segment {segment_id} is full")
-        resp.raise_for_status()
-        return resp.json()["reservation_id"]
+    try:
+        async with httpx.AsyncClient(timeout=PEER_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                f"{PEER_BOOKING_URL}/bookings/peer/reserve",
+                json={
+                    "booking_id": booking_id,
+                    "segment_id": segment_id,
+                    "region": region,
+                    "driver_id": driver_id,
+                    "slot_start": slot_start.isoformat(),
+                    "slot_end": slot_end.isoformat(),
+                },
+            )
+            if resp.status_code == 409:
+                raise CapacityExceededError(f"Peer: segment {segment_id} is full")
+            resp.raise_for_status()
+            return resp.json()["reservation_id"]
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as e:
+        raise RegionUnavailableError(
+            f"Regional node for {region} is currently unavailable. "
+            f"Please try a same-region route or try again later."
+        ) from e
 
 
 async def _peer_release(booking_id: str) -> None:
@@ -64,7 +76,7 @@ def _is_local(region: str) -> bool:
     """True if this region is owned by the local VM, or if no peer is configured."""
     if not PEER_BOOKING_URL:
         return True  # single-VM mode — handle everything locally
-    return region == LOCAL_REGION
+    return region in LOCAL_REGIONS
 
 
 async def execute_booking_saga(
@@ -93,16 +105,29 @@ async def execute_booking_saga(
         departure_time=departure_time,
     )
 
+    regions_involved = [seg["region"] for seg in route_segments]
+    is_cross_region = any(not _is_local(r) for r in regions_involved)
+
+    logger.info(
+        f"[SAGA:{booking_id[:8]}] START — "
+        f"segments={len(route_segments)}, regions={regions_involved}, "
+        f"cross_region={is_cross_region}, local_regions={LOCAL_REGIONS}, peer={PEER_BOOKING_URL or 'none'}"
+    )
+
     reserved = []
     peer_reserved = False  # track whether we made any peer calls
 
     try:
-        for seg in route_segments:
+        for i, seg in enumerate(route_segments, 1):
             schema = REGION_SCHEMA_MAP[seg["region"]]
             slot_key = seg["slot_start"].isoformat()
 
             if _is_local(seg["region"]):
                 # ── Local segment: acquire lock + write to local DB ──────────
+                logger.info(
+                    f"[SAGA:{booking_id[:8]}] Step {i}/{len(route_segments)} — "
+                    f"LOCAL reserve segment={seg['segment_id'][:8]} region={seg['region']} slot={slot_key}"
+                )
                 async with segment_lock(seg["segment_id"], slot_key):
                     try:
                         cap = await check_capacity(db, schema, seg["segment_id"], seg["slot_start"])
@@ -133,10 +158,16 @@ async def execute_booking_saga(
                             status="CONFIRMED",
                         )
                     )
+                logger.info(
+                    f"[SAGA:{booking_id[:8]}] Step {i}/{len(route_segments)} — "
+                    f"LOCAL reserved OK res_id={res_id[:8]}"
+                )
             else:
                 # ── Remote segment: call peer VM ─────────────────────────────
                 logger.info(
-                    f"Routing segment {seg['segment_id']} ({seg['region']}) to peer {PEER_BOOKING_URL}"
+                    f"[SAGA:{booking_id[:8]}] Step {i}/{len(route_segments)} — "
+                    f"PEER reserve segment={seg['segment_id'][:8]} region={seg['region']} "
+                    f"peer={PEER_BOOKING_URL} slot={slot_key}"
                 )
                 res_id = await _peer_reserve(
                     booking_id=booking_id,
@@ -147,6 +178,10 @@ async def execute_booking_saga(
                     slot_end=seg["slot_end"],
                 )
                 peer_reserved = True
+                logger.info(
+                    f"[SAGA:{booking_id[:8]}] Step {i}/{len(route_segments)} — "
+                    f"PEER reserved OK res_id={res_id[:8]}"
+                )
 
             reserved.append({
                 "reservation_id": res_id,
@@ -160,6 +195,11 @@ async def execute_booking_saga(
             })
 
         await db.commit()
+
+        logger.info(
+            f"[SAGA:{booking_id[:8]}] COMMITTED — "
+            f"all {len(reserved)} segments reserved, publishing booking.confirmed"
+        )
 
         await publish_event(
             routing_key="booking.confirmed",
@@ -181,7 +221,14 @@ async def execute_booking_saga(
         }
 
     except Exception as e:
-        logger.error(f"Saga failed for booking {booking_id}: {e}. Rolling back.")
+        is_region_unavailable = isinstance(e, RegionUnavailableError)
+
+        logger.error(
+            f"[SAGA:{booking_id[:8]}] FAILED — reason='{e}'. "
+            f"Rolling back {len(reserved)} reserved segments "
+            f"(local={sum(1 for r in reserved if r.get('is_local', True))}, "
+            f"peer={sum(1 for r in reserved if not r.get('is_local', True))})"
+        )
         await db.rollback()
 
         # Compensating transactions — local rollback
@@ -190,12 +237,15 @@ async def execute_booking_saga(
                 try:
                     await release_segment(db, r["schema"], booking_id)
                     await db.commit()
+                    logger.info(f"[SAGA:{booking_id[:8]}] COMPENSATE LOCAL — released segment={r['segment_id'][:8]}")
                 except Exception as rollback_err:
-                    logger.error(f"Local rollback failed: {rollback_err}")
+                    logger.error(f"[SAGA:{booking_id[:8]}] COMPENSATE LOCAL FAILED — {rollback_err}")
 
-        # Compensating transactions — peer rollback
-        if peer_reserved and PEER_BOOKING_URL:
+        # Compensating transactions — peer rollback (skip if peer is the one that's down)
+        if peer_reserved and PEER_BOOKING_URL and not is_region_unavailable:
+            logger.info(f"[SAGA:{booking_id[:8]}] COMPENSATE PEER — sending rollback to {PEER_BOOKING_URL}")
             await _peer_release(booking_id)
+            logger.info(f"[SAGA:{booking_id[:8]}] COMPENSATE PEER — done")
 
         await publish_event(
             routing_key="booking.failed",
@@ -207,4 +257,7 @@ async def execute_booking_saga(
                 "reason": str(e),
             },
         )
+
+        if is_region_unavailable:
+            raise
         raise SagaRollbackError(str(e)) from e
